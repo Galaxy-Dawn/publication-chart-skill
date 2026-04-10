@@ -14,7 +14,7 @@ Turn these ablation results into a paper-ready figure that makes the contributio
 ## Preferred route
 
 - primary tool: `pubfig`
-- likely family: `dumbbell`, `paired`, or compact comparison chart
+- likely family: `dumbbell` or `paired` for low-cardinality paired ablations, otherwise a compact grouped comparison chart or companion table
 - do not default to a crowded decorative chart
 
 ## Minimum acceptable output shape

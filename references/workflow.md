@@ -3,13 +3,14 @@
 ## Default decision order
 
 1. Identify the scientific communication goal.
-2. Decide whether the evidence should be a figure, a table, or a paired figure+table deliverable.
-3. Choose the strongest representation family.
-4. Route to `pubfig`, `pubtab`, or both.
-5. Produce the smallest runnable implementation.
-6. Specify export outputs explicitly.
-7. Run publication QA.
-8. Propose revisions if the result is weak.
+2. Probe the environment and available assets lightly.
+3. Decide whether the evidence should be a figure, a table, or a paired figure+table deliverable.
+4. Choose the strongest representation family.
+5. Route to `pubfig`, `pubtab`, or both.
+6. Produce the smallest runnable implementation.
+7. Specify export outputs explicitly.
+8. Run publication QA.
+9. Propose revisions if the result is weak.
 
 ## Handoff checklist
 
@@ -21,6 +22,18 @@ For every task, try to make these explicit:
 - figure vs table role
 - exact output filenames and formats
 - whether the artifact is final, draft, or revision
+- whether the current environment can execute the proposed route immediately
+
+## Delivery contract
+
+A strong response should make clear:
+
+- which artifact type was chosen,
+- why it was chosen,
+- which tool owns each artifact,
+- what the first runnable command/code path is,
+- what output files should be produced,
+- what still needs user input or upstream data.
 
 ## Default output priorities
 
@@ -30,7 +43,7 @@ Prioritize in this order:
 2. correct artifact type
 3. minimal runnable implementation
 4. publication-ready export
-5. revision guidance
+5. QA and revision guidance
 
 ## Graceful degradation when tools are missing
 

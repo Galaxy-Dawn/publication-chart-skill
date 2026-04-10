@@ -37,7 +37,14 @@ pf.save_figure(fig, "figure1.pdf")
 For multiple formats:
 
 ```python
-pf.batch_export(fig, "figure1", formats=("pdf", "svg", "png"))
+pf.batch_export(
+    fig,
+    "figure1",
+    formats=("pdf", "svg", "png"),
+    spec="nature",
+    width="single",
+    dpi=300,
+)
 ```
 
 ## When to add export parameters
@@ -48,6 +55,7 @@ Only add more export controls when the task demands them:
 - explicit SVG for vector-first downstream editing
 - PNG for quick review or raster deliverables
 - panel export when the user truly needs composite assembly
+- `batch_export(...)` when the same figure needs several publication-style outputs
 
 ## Panel export branch
 

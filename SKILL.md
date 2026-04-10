@@ -1,29 +1,29 @@
 ---
 name: publication-chart-skill
-description: This skill should be used when the user asks for a publication-quality scientific figure or table, wants help choosing the right chart for results, needs a paper-ready figure/table generated with pubfig or pubtab, wants an existing figure/table reviewed and improved, or needs panel export and optional composite assembly for a paper figure.
-version: 0.1.0
+description: This skill should be used when the user asks for a publication-quality scientific figure or table, wants help choosing the right chart for results, needs a paper-ready pubfig or pubtab workflow, wants a figure + companion table for a results section, wants an Excel sheet turned into publication-ready LaTeX, or wants an existing scientific figure/table reviewed and upgraded.
+version: 0.2.0
 ---
 
 # Publication Chart Skill
 
 ## Goal
 
-Use this skill to help an agent turn research results into **publication-grade figures and tables**.
+Use this skill to turn research results into **publication-grade figures and tables** with an end-to-end workflow.
 
-The primary production stack is:
+Primary production stack:
 
 - **`pubfig`** for figures
 - **`pubtab`** for publication tables
 
-The skill is not generation-only. Its job is to carry the whole workflow from:
+This skill covers the full delivery chain:
 
-1. understanding the communication goal,
-2. choosing the right visual/table form,
-3. mapping to the correct toolchain,
-4. generating concrete code or commands,
-5. exporting paper-ready assets,
-6. checking publication quality,
-7. proposing targeted revisions.
+1. understand the scientific communication goal,
+2. choose the right artifact type,
+3. map the task to `pubfig`, `pubtab`, or both,
+4. generate concrete runnable instructions,
+5. export paper-ready assets,
+6. run publication QA,
+7. propose targeted revisions.
 
 ## Use this skill when
 
@@ -33,10 +33,23 @@ Trigger this skill for requests like:
 - “choose the right chart for these results”
 - “turn these results into a paper-ready figure”
 - “make a benchmark / ablation / calibration / forest / heatmap / scatter / line / bar figure”
+- “make a benchmark / appendix / ablation table from Excel”
 - “convert this Excel table into publication-ready LaTeX”
+- “prepare one summary figure plus one companion table for the results section”
 - “review and improve this scientific figure/table”
+- “I already have a weak chart / screenshot / draft plot — make it publication-ready”
 - “export panels for a paper figure”
-- “prepare a figure + table pair for a results section”
+
+## Do not use this skill for
+
+Do **not** use this skill when the task is mainly:
+
+- manuscript prose writing,
+- statistical testing without artifact design,
+- raw exploratory analysis with no publication deliverable,
+- Figma-first layout work before the figure/table content is solid.
+
+For simple composite assembly after the figure content is already strong, use the optional secondary workflow in `references/composite-assembly.md`.
 
 ## Primary contract
 
@@ -46,47 +59,60 @@ Expect some combination of:
 
 - the scientific communication goal,
 - available data shape,
-- target venue or style constraints,
+- venue or style constraints,
 - whether the artifact is a figure, table, or mixed deliverable,
-- optional existing assets such as code, spreadsheets, `.tex`, screenshots, or plot drafts.
+- optional existing assets such as code, spreadsheets, `.tex`, screenshots, or draft plots,
+- whether the user needs a first draft, a publication-ready artifact, or a review/revision pass.
 
 ### Outputs
 
 The minimum useful output is:
 
-- the recommended figure or table form,
-- the recommended `pubfig` or `pubtab` route,
+- the recommended figure/table form,
+- the recommended `pubfig` / `pubtab` route,
 - a minimal runnable code snippet or CLI command,
-- an export plan,
+- explicit export filenames and formats,
 - a publication QA summary,
 - and, when needed, a revision plan.
 
 ## Default workflow
 
+### 0. Probe the environment and artifact state
+
+Before generating anything, identify:
+
+- whether `pubfig` or `pubtab` is actually available,
+- whether the user already has code / spreadsheets / `.tex` / screenshots,
+- whether the deliverable is a fresh build or a revision,
+- whether the result needs exact values, fast visual perception, or both.
+
+Prefer the smallest environment check that helps execution, such as version checks or confirming file availability. Do not block on a full environment audit.
+
 ### 1. Classify the task
 
-First classify the request along three axes:
+Classify the request along these axes:
 
 - **artifact type**: figure / table / mixed deliverable
 - **maturity**: exploratory draft / publication-ready generation / revision of an existing artifact
 - **structure**: single panel / multi-panel / figure-plus-table package
+- **evidence mode**: pattern perception / exact value lookup / both
 
 Do not jump into plotting code before the communication target is clear.
 
 ### 2. Choose the representation
 
-Choose the representation based on the claim the user wants to communicate, not on novelty or visual flair.
+Choose the representation based on the scientific claim, not novelty or visual flair.
 
 Common families:
 
-- **comparison** — bar, grouped scatter, line comparison, benchmark summary, companion table
-- **ablation** — bar/grouped comparison, compact summary table, paired comparison, dumbbell
+- **comparison** — grouped scatter, bar, line comparison, benchmark summary, companion table
+- **ablation** — grouped comparison, dumbbell, paired comparison, compact table
 - **distribution** — box, violin, raincloud, histogram, density, ECDF, QQ
 - **relationship** — scatter, bubble, contour2d, hexbin
 - **trend** — line, area
-- **evaluation / diagnostic** — ROC, PR, calibration, Bland–Altman, forest plot, volcano
-- **composition / hierarchy** — donut, stacked ratio, radial hierarchy, circular grouped or stacked bars, UpSet
-- **table** — formatted benchmark table, ablation table, dataset summary, error breakdown, appendix table
+- **evaluation / diagnostic** — calibration, ROC, PR, Bland–Altman, forest plot, volcano
+- **composition / hierarchy** — UpSet, stacked ratio, donut, radial hierarchy, circular grouped or stacked bars
+- **table** — benchmark table, ablation table, dataset summary, appendix table, error breakdown
 
 Avoid weak defaults:
 
@@ -95,42 +121,61 @@ Avoid weak defaults:
 - avoid 3D, decorative gradients, and dense legends used only for style,
 - avoid forcing every result into a figure when a publication table communicates the evidence better.
 
-If the request is ambiguous, explicitly say what scientific claim the chart/table is supposed to support.
+If the request is ambiguous, explicitly state what scientific claim the artifact is supposed to support.
 
 ### 3. Map to the toolchain
 
-Use this default mapping:
+Default mapping:
 
 - **Figures** → `pubfig`
 - **Tables** → `pubtab`
-- **Mixed deliverables** → use both, with each artifact having a distinct role
+- **Mixed deliverables** → use both, with each artifact carrying a distinct role
 
 Tool roles:
 
-- `pubfig` is the default figure engine for publication-style scientific plots and clean export.
+- `pubfig` is the default figure engine for scientific plots and paper-ready export.
 - `pubtab` is the default table engine for Excel ↔ LaTeX workflows, preview, and publication-ready table export.
-- Figma or composite assembly is an **optional secondary branch** for multi-panel finishing. Do not make it the default if a normal single-panel figure is enough.
+- Figma/composite assembly is an **optional secondary branch** for multi-panel finishing.
 
-### 4. Generate artifact instructions
+Route selection rules:
+
+- prefer **Python** for `pubfig` figure generation,
+- prefer **CLI** for `pubtab` when the task is file-driven,
+- prefer **Python** for `pubtab` when the task is already inside a notebook or scripted pipeline,
+- keep the figure and table responsibilities separate in mixed requests.
+
+### 4. Generate concrete artifact instructions
 
 Prefer the smallest production-ready artifact first:
 
 - minimal runnable Python for `pubfig`, or
 - minimal CLI/Python for `pubtab`
 
-Then add publication parameters only when they are justified by the task:
+Then add publication parameters only when justified:
 
-- labels, captions, width, export format, backend, panel packaging, preview, or composite layout.
+- labels, caption, width, export format, backend, preview, panel packaging, or composite layout.
 
-Keep filenames and export suffixes explicit.
+Keep filenames and suffixes explicit.
 
 Good defaults:
 
-- figures: start with one `pubfig` call + one `save_figure(...)`
-- tables: start with one `pubtab xlsx2tex ...` or `pubtab.preview ...`
-- mixed requests: clearly separate the figure route and table route
+- figures: one `pubfig` call + one `save_figure(...)`
+- multiple figure outputs: `batch_export(...)`
+- tables: one `pubtab xlsx2tex ...` or `pubtab.preview ...`
+- mixed requests: one figure route + one table route, clearly separated
 
-### 5. Run publication QA
+### 5. Define the delivery contract
+
+For every response, make these explicit when possible:
+
+- the claim the artifact supports,
+- which part is handled by `pubfig` and which by `pubtab`,
+- the output filenames,
+- the output formats,
+- whether the artifact is draft / final / revision,
+- what still needs user-provided data or manuscript context.
+
+### 6. Run publication QA
 
 After generation, check:
 
@@ -144,11 +189,11 @@ After generation, check:
 - panel consistency for multi-panel figures,
 - venue-fit issues such as width, crowding, or over-annotation.
 
-The QA output should be concrete. Do not say “looks better” without naming why.
+The QA output must be concrete. Do not say “looks better” without naming why.
 
-### 6. Revise
+### 7. Revise
 
-If the result is weak, revise by giving specific changes such as:
+If the result is weak, revise with specific changes such as:
 
 - switch chart family,
 - remove chartjunk,
@@ -157,7 +202,7 @@ If the result is weak, revise by giving specific changes such as:
 - split a crowded panel,
 - add or simplify the caption,
 - change export width,
-- or convert the artifact from figure-first to table-first.
+- or convert the deliverable from figure-first to table-first.
 
 ## Missing dependency behavior
 
@@ -167,15 +212,8 @@ If `pubfig` or `pubtab` is not available:
 - degrade to a design/specification workflow,
 - provide installation guidance,
 - provide pseudocode or draft commands,
-- and preserve the recommended visual or table structure so the user can execute it later.
-
-That means the skill should still help with:
-
-- chart/table selection,
-- parameter planning,
-- export planning,
-- QA,
-- and revision guidance.
+- preserve the recommended figure/table structure,
+- still provide QA and revision guidance.
 
 ## Composite assembly rule
 
@@ -192,26 +230,35 @@ Do not escalate simple figure tasks into composite/Figma workflows by default.
 - Explain the **why** of chart/table choice briefly, then give the runnable route.
 - When a table is stronger than a figure, say so explicitly.
 - When a figure is stronger than a table, say so explicitly.
+- When both are needed, assign them different communication roles.
 - Keep revision guidance actionable and falsifiable.
 
 ## Recommended response shape
 
-A strong response using this skill usually has 5 parts:
+A strong response using this skill usually has 6 parts:
 
-1. **Recommended artifact** — what figure/table type to use and why
+1. **Artifact decision** — figure / table / paired deliverable, and why
 2. **Tool route** — `pubfig`, `pubtab`, or both
 3. **Minimal implementation** — runnable code or CLI
 4. **Export plan** — filenames, formats, width/backend/preview choices
-5. **Publication QA / next revisions** — what to check or change before submission
+5. **Publication QA** — what to verify before paper submission
+6. **Revision plan** — what to change if the current artifact is weak
 
 ## Resources
 
 Load these as needed:
 
-- `references/workflow.md` — full end-to-end handoff checklist
+- `references/workflow.md` — full end-to-end decision order and delivery contract
 - `references/chart-selection.md` — task-to-chart mapping and anti-patterns
+- `references/execution-and-verification.md` — environment probing, install fallback, and runnable verification
 - `references/pubfig-recipes.md` — shortest useful figure patterns and export routes
 - `references/pubtab-recipes.md` — shortest useful table routes and backend guidance
+- `references/source-guides/pubfig-architecture.md` — package layout and figure-generation boundaries from source
+- `references/source-guides/pubfig-api-map.md` — stable public pubfig surface and chart-family map from `__init__.py`
+- `references/source-guides/pubfig-export-flow.md` — figure export, publication sizing, and panel-export flow from source
+- `references/source-guides/pubtab-architecture.md` — package layout and forward/reverse conversion architecture from source
+- `references/source-guides/pubtab-cli-api-flow.md` — CLI-to-API control flow and batch/sheet behavior from source
+- `references/source-guides/pubtab-backend-and-preview.md` — backend/theme split and real preview compile pipeline from source
 - `references/publication-qa-checklist.md` — figure/table QA checklist
 - `references/composite-assembly.md` — optional multi-panel and Figma branch
 

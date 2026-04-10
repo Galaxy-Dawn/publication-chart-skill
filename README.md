@@ -7,17 +7,27 @@ This repository is intentionally shaped so the **repo root is the skill root**. 
 ## What this skill covers
 
 - choose the right figure / table form for a research communication goal
+- decide whether a result should be a figure, a table, or a figure + companion table
 - map the request to `pubfig` or `pubtab`
 - generate minimal runnable code or CLI commands
 - export paper-ready assets
 - run publication QA
-- propose targeted revisions when the result is weak
+- propose targeted revisions when the current artifact is weak
+
+## What's new in v2
+
+- stronger trigger surface for **figure + companion table** workflows
+- clearer first-response contract: artifact decision, tool route, implementation, export, QA, revision
+- explicit environment-probing and graceful-degradation guidance
+- tighter alignment with current `pubfig` / `pubtab` capabilities
+- new review example for upgrading an existing weak figure/table draft
+- new source-driven docs mapped directly from `pubfig/src/pubfig` and `pubtab/src/pubtab`
 
 ## Repository layout
 
 - `SKILL.md` — the installable skill entrypoint
 - `agents/openai.yaml` — optional UI metadata
-- `references/` — workflow guidance and recipes
+- `references/` — workflow guidance, recipes, and source-driven architecture docs
 - `examples/` — prompt-to-output-shape examples
 
 ## Install
@@ -36,7 +46,7 @@ Copy this repository as one complete skill folder into the directory where your 
 
 ## Notes
 
-- This is a **workflow-first** skill. It does not ship helper scripts in v1.
+- This is a **workflow-first** skill; it still does not ship helper scripts.
 - `pubfig` is the default engine for figures.
 - `pubtab` is the default engine for publication tables.
 - Figma/composite assembly is supported as an **optional secondary branch**, not the default path.
