@@ -1,4 +1,0 @@
-interface:
-  display_name: "Publication Chart Skill"
-  short_description: "Choose, build, and review publication-grade figures and tables with pubfig and pubtab"
-  default_prompt: "Use $publication-chart-skill to decide whether this result should be a figure, a table, or both, generate a runnable pubfig/pubtab route, define export outputs, and run publication QA."
