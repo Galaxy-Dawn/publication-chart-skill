@@ -1,0 +1,37 @@
+{
+  "name": "publication-chart-skill",
+  "version": "0.2.0",
+  "description": "Codex plugin wrapper for the publication-chart-skill research figure/table workflow.",
+  "author": {
+    "name": "Gaoruizhang",
+    "url": "https://github.com/Galaxy-Dawn"
+  },
+  "homepage": "https://github.com/Galaxy-Dawn/publication-chart-skill",
+  "repository": "https://github.com/Galaxy-Dawn/publication-chart-skill",
+  "keywords": [
+    "research",
+    "scientific-figures",
+    "scientific-tables",
+    "pubfig",
+    "pubtab"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Publication Chart Skill",
+    "shortDescription": "Choose, build, and review publication-grade figures and tables.",
+    "longDescription": "Plugin wrapper for publication-chart-skill, a workflow-first research skill for selecting figure/table forms, routing to pubfig or pubtab, exporting paper-ready assets, and running publication QA.",
+    "developerName": "Gaoruizhang",
+    "category": "Research",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Galaxy-Dawn/publication-chart-skill",
+    "defaultPrompt": [
+      "Choose the right paper figure or table for these results.",
+      "Turn this Excel benchmark sheet into a publication-ready LaTeX table.",
+      "Review this weak scientific chart and propose a pubfig/pubtab revision route."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

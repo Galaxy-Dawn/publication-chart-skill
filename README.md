@@ -29,24 +29,64 @@ This repository is intentionally shaped so the **repo root is the skill root**. 
 - `agents/openai.yaml` — optional UI metadata
 - `references/` — workflow guidance, recipes, and source-driven architecture docs
 - `examples/` — prompt-to-output-shape examples
+- `claude-plugin/publication-chart-skill/` — Claude Code plugin wrapper
+- `plugins/publication-chart-skill/` — Codex plugin wrapper
+- `.agents/plugins/marketplace.json` — repo-local Codex marketplace entry for the plugin wrapper
+- `scripts/ensure_publication_tooling.py` — bundled probe + force-install helper for `pubfig` / `pubtab`
+- `scripts/sync_plugin_wrappers.py` — maintainer script that refreshes both plugin wrappers from the canonical root skill
 
 ## Install
 
-### Codex
+### Direct skill install
 
-Copy this repository into your skill directory, for example:
+If you want the lightest-weight path, copy the repository root directly into your skill directory and keep the root unchanged.
 
 ```bash
-cp -R publication-chart-skill ~/.codex/skills/publication-chart-skill
+cp -R publication-chart-skill /path/to/your/skills/publication-chart-skill
 ```
 
-### Claude Code
+### Claude Code plugin wrapper
 
-Copy this repository as one complete skill folder into the directory where your Claude Code skills live. Keep the repository root unchanged so `SKILL.md`, `references/`, and `examples/` stay at the skill root.
+This repository also ships a Claude Code plugin wrapper at:
+
+- `claude-plugin/publication-chart-skill/`
+
+For local testing, point Claude Code at that plugin root:
+
+```bash
+claude --plugin-dir /absolute/path/to/publication-chart-skill/claude-plugin/publication-chart-skill
+```
+
+### Codex plugin wrapper
+
+This repository also ships a Codex plugin wrapper at:
+
+- `plugins/publication-chart-skill/`
+
+The repo includes a marketplace entry at:
+
+- `.agents/plugins/marketplace.json`
+
+so the wrapper can be surfaced through Codex's plugin flow from this repository layout.
+
+## Maintainer note
+
+The canonical source of truth remains the repository root skill:
+
+- `SKILL.md`
+- `references/`
+- `examples/`
+
+If you update the root skill and want the plugin wrappers to stay in sync, run:
+
+```bash
+python3 scripts/sync_plugin_wrappers.py
+```
 
 ## Notes
 
-- This is a **workflow-first** skill; it still does not ship helper scripts.
+- This is a **workflow-first** skill with one small bundled helper script for deterministic environment probing and forced installation.
 - `pubfig` is the default engine for figures.
 - `pubtab` is the default engine for publication tables.
+- The skill probes for `pubfig` / `pubtab` availability and force-installs missing dependencies into the active environment before continuing when runnable execution is required.
 - Figma/composite assembly is supported as an **optional secondary branch**, not the default path.
