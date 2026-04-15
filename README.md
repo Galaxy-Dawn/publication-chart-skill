@@ -14,12 +14,14 @@ The goal is to help an agent choose the right artifact, produce a runnable route
 ## How it works
 
 <p align="center">
-  <a href="https://github.com/Galaxy-Dawn/pubfig/blob/main/examples/bar_scatter.png"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubfig/main/examples/bar_scatter.png" width="48%" alt="pubfig bar scatter example"></a>
-  <a href="https://github.com/Galaxy-Dawn/pubtab/blob/main/examples/table7.xlsx"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubtab/main/examples/table7.png" width="48%" alt="pubtab table example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubfig/blob/main/examples/bar_scatter.png"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubfig/main/examples/bar_scatter.png" width="32%" alt="pubfig bar scatter example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubfig/blob/main/examples/forest_plot.png"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubfig/main/examples/forest_plot.png" width="32%" alt="pubfig forest plot example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubfig/blob/main/examples/heatmap.png"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubfig/main/examples/heatmap.png" width="32%" alt="pubfig heatmap example"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/Galaxy-Dawn/pubfig/blob/main/examples/calibration.png"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubfig/main/examples/calibration.png" width="48%" alt="pubfig calibration example"></a>
-  <a href="https://github.com/Galaxy-Dawn/pubtab/blob/main/examples/table10.xlsx"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubtab/main/examples/table10.png" width="48%" alt="pubtab table10 example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubtab/blob/main/examples/table4.xlsx"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubtab/main/examples/table4.png" width="32%" alt="pubtab table4 example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubtab/blob/main/examples/table7.xlsx"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubtab/main/examples/table7.png" width="32%" alt="pubtab table7 example"></a>
+  <a href="https://github.com/Galaxy-Dawn/pubtab/blob/main/examples/table10.xlsx"><img src="https://raw.githubusercontent.com/Galaxy-Dawn/pubtab/main/examples/table10.png" width="32%" alt="pubtab table10 example"></a>
 </p>
 
 When this skill is triggered, the agent should not jump straight into plotting. It should first determine what the user is trying to communicate: a comparison, an ablation, a calibration result, a diagnostic summary, a benchmark table, or a mixed figure-plus-table deliverable.
