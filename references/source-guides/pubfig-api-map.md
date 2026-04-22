@@ -1,199 +1,108 @@
 # pubfig API map (source-driven)
 
-This guide maps the public `pubfig` API from `pubfig/src/pubfig/__init__.py` to the underlying modules.
+This guide maps the public `pubfig>=0.3.0` surface to the agent-first CLI surface.
 
-## 1. Stable entrypoint
+Primary source files:
 
-The public contract is defined by re-exports in `pubfig.__init__`.
+- `pubfig/src/pubfig/__init__.py`
+- `pubfig/src/pubfig/plot_registry.py`
+- `pubfig/src/pubfig/render_spec.py`
 
-For agents, this means:
+## 1. Public implementation layer
 
-- if a symbol is re-exported there, it is a good default public entrypoint;
-- if a helper only exists in deep internal modules, treat it as implementation detail unless there is a strong reason not to.
+### Source facts
 
-## 2. Public API groups
+`pubfig.__init__` re-exports public Python functions such as:
 
-### Themes
+- `bar_scatter`
+- `grouped_scatter`
+- `dumbbell`
+- `forest_plot`
+- `calibration`
+- `heatmap`
+- `line`
+- `scatter`
 
-Public re-exports:
-
-- `set_default_theme`
-- `get_default_theme`
-- `get_theme`
-- `register_theme`
-
-Use these when the task is really about reusable visual policy.
-Do not hardcode theme assumptions if a registry call is more appropriate.
-
-### Colors and palettes
-
-Public re-exports include:
-
-- `DEFAULT`, `NATURE`, `SCIENCE`, `LANCET`, `JAMA`
-- `get_palette`
-- `register_palette`
-- `color_to_rgba`
-- `darken_color`
-- `show_palette`
-
-Source fact:
-
-- palette registration and palette inspection are exposed from the package root.
-
-Operational implication:
-
-- treat palette selection and palette registration as public API usage, not as deep internal customization.
-
-### Export
-
-Public re-exports:
+It also re-exports export helpers:
 
 - `save_figure`
 - `batch_export`
-- `PanelExportRecord`
 - `export_panel`
 - `export_panels`
-- `package_figma_bundle`
-- `validate_figma_bundle`
-- `inspect_figma_bundle`
 
-Skill implication:
+### Operational interpretation
 
-- normal paper figures should usually stop at `save_figure` or `batch_export`
-- panel workflows should use `export_panel(s)`
-- bundle helpers are for bridge/Figma handoff, not the default answer
+These functions remain the native implementation surface. Agents should usually reach them through the JSON CLI unless the user explicitly asks for Python code.
 
-### Figure specs
+## 2. CLI plot-kind layer
 
-Public re-exports:
+### Source facts
 
-- `FigureSpec`
-- `get_figure_spec`
-- `register_figure_spec`
-- `list_figure_specs`
+`plot_registry.py` provides stable `plot.kind` names for the JSON CLI. The installed version can be queried with:
 
-Use this layer whenever the user asks for venue-aware width, journal defaults, or a custom export profile.
+```bash
+pubfig list-kinds
+```
 
-### Plot families
+A JSON spec calls a public plot function through:
 
-The public plot surface is broad, but the source still clusters naturally.
+```json
+{
+  "plot": {
+    "kind": "bar_scatter",
+    "kwargs": {
+      "data": [
+        [[0.73, 0.77, 0.80], [0.90, 0.94, 0.97]],
+        [[0.83, 0.87, 0.90], [1.02, 1.05, 1.08]]
+      ],
+      "category_names": ["Dataset A", "Dataset B"],
+      "series_names": ["Baseline", "Method"]
+    }
+  }
+}
+```
 
-#### Comparison / summary figures
+### Operational interpretation
 
-Representative public calls:
+When writing a skill response, name the CLI `plot.kind` first. Mention the corresponding Python function only if useful for source-level explanation.
 
-- `bar`
-- `bar_scatter`
-- `stacked_bar`
-- `stacked_ratio_barh`
-- `donut`
-- `dumbbell`
-- `forest_plot`
-- `grouped_scatter`
-- `upset`
+## 3. Recommended mapping by task
 
-Use these for benchmark, ablation, summary, composition, and set-overlap tasks.
+| Task | Preferred CLI `plot.kind` | Notes |
+|---|---|---|
+| repeated benchmark runs | `bar_scatter`, `grouped_scatter` | shows spread instead of hiding all runs behind bars |
+| compact ablation | `dumbbell`, `paired`, `bar_scatter` | make baseline and module effect explicit |
+| calibration | `calibration` | diagnostic probability calibration, not a generic trend plot |
+| confidence intervals | `forest_plot` | effect estimate plus uncertainty |
+| correlation or confusion-style matrix | `heatmap`, `corr_matrix` | use labels and colorbar carefully |
+| distributions | `box`, `violin`, `raincloud`, `ecdf`, `qq` | choose by the claim about spread/shape |
+| ranking/trend | `line`, `area`, `grouped_scatter` | keep exact values in a companion table when needed |
 
-#### Distribution figures
+## 4. CLI validation contract
 
-Representative public calls:
+### Source facts
 
-- `ecdf`
-- `qq`
-- `box`
-- `density`
-- `hexbin`
-- `histogram`
-- `raincloud`
-- `strip`
-- `ridgeline`
-- `violin`
+`render_spec.py` validates:
 
-Use these when the scientific claim is about spread, calibration of assumptions, or cohort structure.
+- schema version,
+- top-level keys,
+- required plot/panel fields,
+- unknown fields,
+- output paths,
+- callable argument binding,
+- data references.
 
-#### Trend / profile figures
+### Operational interpretation
 
-Representative public calls:
+Always recommend `pubfig validate-spec ...` before `pubfig render ...`. This gives agents a reviewable failure point before writing final files.
 
-- `line`
-- `area`
-- `parallel_coordinates`
-- `radar`
-- `radial_hierarchy`
-- `circular_stacked_bar`
-- `circular_grouped_bar`
+## 5. Python fallback boundary
 
-Not all of these are equally strong for publication use. The skill should still apply chart-selection discipline before calling them.
+Use Python API examples only when:
 
-#### Relationship / embedding figures
+- the user is already in a notebook or Python script,
+- the task needs custom preprocessing inside the plotting call,
+- the target plot behavior is not representable in the JSON spec,
+- or the user explicitly asks for Python code.
 
-Representative public calls:
-
-- `scatter`
-- `volcano`
-- `bubble`
-- `contour2d`
-- `paired`
-- `heatmap`
-- `corr_matrix`
-- `clustermap`
-- `dimreduce`
-- `pca_biplot`
-
-Use these for association, error structure, feature layout, and representation views.
-
-#### Evaluation figures
-
-Representative public calls:
-
-- `roc`
-- `pr_curve`
-- `calibration`
-- `bland_altman`
-
-This cluster matters because the source gives them dedicated implementation in `plots/evaluation.py`, which is a sign that evaluation charts are a first-class use case.
-
-## 3. Return-value contract
-
-The source in `export/io.py` makes a subtle but important contract explicit:
-
-- export functions accept a Matplotlib `Figure`,
-- or an `Axes`,
-- or any object exposing a `.figure` attribute that resolves to a `Figure`.
-
-Source fact:
-
-- the export layer accepts standard Matplotlib figure objects or figure-bearing wrappers.
-
-Operational implication:
-
-- keep the `Figure` handle available and route export through the standard Matplotlib-facing export path.
-
-For the skill, the safest phrasing is:
-
-- create the figure,
-- keep a handle to the `Figure`,
-- then export explicitly.
-
-## 4. What is not the main stable plotting interface
-
-From the source tree, the CLI is not where normal chart creation happens.
-It is mostly an operational layer for Figma bundle and bridge actions.
-
-So if a user says “generate a paper-ready figure,” the skill should not default to a CLI answer.
-
-## 5. Safe public usage pattern
-
-The most source-faithful pattern is:
-
-1. choose a public plot function from `pubfig`
-2. generate a `Figure`
-3. export via `save_figure(...)` or `batch_export(...)`
-4. only use panel/bundle helpers when composition is actually required
-
-## 6. Source-guided caution points
-
-- Do not mix up plot-time design sizing with export-time publication sizing.
-- Do not use `save_figure(...)` as a multi-format exporter; the source now pushes that role to `batch_export(...)`.
-- Do not route ordinary figure-generation tasks through the Figma bridge CLI.
-- Do not assume all public plot families are equally appropriate; the skill must still filter by scientific communication quality.
+Do not present Python plotting code as the default agent route for `pubfig>=0.3.0`.

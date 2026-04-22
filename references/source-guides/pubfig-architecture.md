@@ -1,190 +1,135 @@
 # pubfig architecture (source-driven)
 
-This guide reads `pubfig` from the source tree rather than from high-level overview material.
+This guide reads `pubfig>=0.3.0` from the source tree rather than from high-level overview material.
 
-Source root:
+Primary source files:
 
 - `pubfig/src/pubfig/__init__.py`
+- `pubfig/src/pubfig/plot_registry.py`
+- `pubfig/src/pubfig/render_spec.py`
+- `pubfig/src/pubfig/cli.py`
 - `pubfig/src/pubfig/plots/`
 - `pubfig/src/pubfig/export/`
 - `pubfig/src/pubfig/specs.py`
 - `pubfig/src/pubfig/themes/`
 - `pubfig/src/pubfig/colors/`
-- `pubfig/src/pubfig/cli.py`
 
-## 1. Start at `pubfig.__init__`
+## 1. Core architecture
 
-The stable user-facing surface is re-exported from `__init__.py`.
+### Source facts
 
-That file tells you the package is organized into five main layers:
+- `pubfig.__init__` re-exports the public Python plot functions and export helpers.
+- `plot_registry.py` maps stable CLI `plot.kind` strings to those public plot functions.
+- `render_spec.py` implements the agent-first JSON render pipeline.
+- `cli.py` exposes `render`, `validate-spec`, `list-kinds`, and `figma` subcommands.
+- `export/io.py` and `export/panels.py` remain the underlying export implementation.
 
-1. **plot constructors** from `plots/`
-2. **export helpers** from `export/`
-3. **publication sizing** from `specs.py`
-4. **theme and palette registries** from `themes/` and `colors/`
-5. **Figma/bridge helpers** and related CLI support
+### Operational interpretation
 
-For skill design, this is the most important architectural fact:
+For agents, the primary route is now:
 
-- figure generation lives in `plots/`
-- figure export lives in `export/`
-- venue sizing lives in `specs.py`
-- multi-panel/Figma handoff is a separate downstream layer
+1. write a JSON render spec,
+2. run `pubfig validate-spec figure.spec.json`,
+3. run `pubfig render figure.spec.json`,
+4. inspect the emitted `output_paths` and generated files.
 
-The default mental model is **plot first, export second, compose third**.
+The Python API is still the native implementation layer and remains useful in notebooks or custom scripts. It is no longer the default interface this skill should recommend for agent-generated figures.
 
-## 2. Package boundaries
+## 2. Agent-first CLI surface
 
-### `plots/`
+### Source facts
 
-This is the core figure-construction layer.
+`pubfig 0.3.0` exposes these stable commands:
 
-Representative files:
+```bash
+pubfig list-kinds
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
 
-- `plots/line.py`
-- `plots/comparison.py`
-- `plots/evaluation.py`
-- `plots/_grouped_scatter.py`
+`list-kinds` reports the stable `plot.kind` names. `validate-spec` builds and checks the figure route without writing output files. `render` executes the same spec and writes the requested artifacts.
 
-From the source, plot functions usually do the same sequence:
+### Operational interpretation
 
-1. normalize/coerce input data,
-2. enter `theme_context(theme)`,
-3. resolve design-time size via `resolve_design_dpi(...)`,
-4. allocate figure/axes via `get_fig_ax(...)`,
-5. style axes/legends through helpers in `_style.py`,
-6. return a Matplotlib `Figure`.
+A figure answer should normally include:
 
-Interpretation from source:
+- the `plot.kind`,
+- a complete JSON spec,
+- the validation command,
+- the render command,
+- expected output files.
 
-- `pubfig` behaves as a **Matplotlib-first figure factory layer**, not as a separate scene-graph runtime.
+## 3. JSON render spec contract
 
-### `export/`
+### Source facts
 
-This is intentionally separated from plotting.
+`render_spec.py` accepts exactly one of:
 
-Important files:
+- `plot` for one figure,
+- `panels` for a panel export package.
 
-- `export/io.py`
-- `export/panels.py`
+Top-level keys are:
 
-`export/io.py` handles normal figure export:
+- `schema_version`
+- `plot` or `panels`
+- `export`
 
-- coerce Figure/Axes into a real `Figure`
-- enforce explicit suffixes
-- apply publication width/height rules
-- write vector or raster output
+For single figures, `export.mode` must be one of:
 
-Current source implication:
+- `save_figure`
+- `batch_export`
 
-- `batch_export(...)` now belongs to the same publication-aware export layer, rather than to a simple multi-format `savefig` wrapper.
+For panel packages, `export.mode` must be:
 
-`export/panels.py` handles panel-level export for composite or Figma-oriented workflows:
+- `export_panels`
 
-- one panel at a time or many panels together
-- optional publication-aware sizing
-- optional title stripping
-- metadata index generation (`panel-index.json`)
+Data references support JSON, CSV, NPY, and NPZ through `{"$load": "..."}`.
 
-### `specs.py`
+### Operational interpretation
 
-This file is the publication-sizing contract.
+Keep specs explicit. Do not hide important output behavior inside prose. If the user needs PDF and PNG, use `batch_export` in the JSON spec rather than two ad-hoc Python calls.
 
-`FigureSpec` defines:
+## 4. Plot family surface
 
-- `font_family`
-- `design_dpi`
-- `single_column_mm`
-- `double_column_mm`
-- `default_raster_dpi`
-- `background_color`
+### Source facts
 
-Built-in registry entries include:
+The public plot families are still implemented in `plots/` and re-exported through `pubfig.__init__`. The CLI reaches them through `plot_registry.py`.
 
-- `nature`
-- `science`
-- `cell`
+Representative `plot.kind` values include:
 
-The source shows a strong split between:
+- comparison: `bar`, `bar_scatter`, `grouped_scatter`, `dumbbell`, `paired`
+- distribution: `box`, `violin`, `raincloud`, `histogram`, `density`, `ecdf`, `qq`
+- trend: `line`, `area`
+- relationship: `scatter`, `bubble`, `contour2d`, `hexbin`
+- matrix/map: `heatmap`, `corr_matrix`, `clustermap`
+- evaluation/diagnostic: `calibration`, `roc`, `pr_curve`, `bland_altman`, `forest_plot`, `volcano`
+- composition/hierarchy: `upset`, `stacked_bar`, `stacked_ratio_barh`, `donut`, `radial_hierarchy`, `circular_grouped_bar`, `circular_stacked_bar`
 
-- **design size** used when constructing interactive figures,
-- **physical export size** used when saving publication figures.
+### Operational interpretation
 
-That split is why the skill should not treat `width` in plot calls and `width` in export calls as the same semantic layer.
+Use `pubfig list-kinds` as the installed-version truth. Choose the plot family by scientific claim, not by novelty.
 
-### `themes/` and `colors/`
+## 5. Export architecture
 
-These are registries, not plain constants.
+### Source facts
 
-From `__init__.py`, the public surface includes:
+The CLI export modes call the same underlying export primitives:
 
-- `get_theme`, `register_theme`, `set_default_theme`
-- `get_palette`, `register_palette`, `show_palette`
+- `save_figure(...)` for one explicit target,
+- `batch_export(...)` for multi-format publication export,
+- `export_panels(...)` for structured panel directories.
 
-Operational implication:
+The export layer handles publication sizing, format suffixes, DPI, trim behavior, vector text behavior, and panel metadata.
 
-- treat theme and palette selection as first-class API configuration rather than as hardcoded styling trivia.
+### Operational interpretation
 
-### `cli.py`
+For agents, describe the export block first. Mention Python functions only as the underlying implementation or as an optional notebook/script path.
 
-The current CLI is not the main figure-generation interface.
+## 6. Source-guided caution points
 
-From the source, `cli.py` is mainly about:
-
-- Figma bridge serving
-- bundle packaging/inspection/validation
-- sync job submission and waiting
-- local bridge auto-start logic
-
-So for this skill:
-
-- **Python API is the primary route for figure generation**
-- `pubfig.cli` is a secondary operational layer for bridge/Figma workflows
-
-## 3. Plotting architecture pattern
-
-From `line.py`, `comparison.py`, and `evaluation.py`, the recurring internal pattern is:
-
-- input normalization is local to the chart family,
-- shared visual behavior is delegated to internal helpers,
-- returned artifact is still a standard Matplotlib figure.
-
-This is why the skill should map requests to a chart family first, instead of jumping directly to export or panel assembly.
-
-Examples from source:
-
-- `line.py` groups time/trend style plots
-- `comparison.py` groups comparison-style statistical displays like `dumbbell` and `forest_plot`
-- `evaluation.py` groups metric/evaluation plots like `roc`, `pr_curve`, and `calibration`
-- `_grouped_scatter.py` contains the more specialized placement/jitter/annotation logic behind grouped scatter layouts
-
-## 4. Export architecture pattern
-
-From `export/io.py` and `export/panels.py`, `pubfig` uses three distinct output modes:
-
-1. **single explicit artifact** via `save_figure(...)`
-2. **publication-aware multi-format artifact set** via `batch_export(...)`
-3. **panel bundle workflow** via `export_panel(...)` / `export_panels(...)`
-
-Those are different contracts, and the skill should keep them separate in its recommendations.
-
-## 5. Reading order for deep debugging
-
-When a skill or agent needs source-level certainty, use this order:
-
-1. `pubfig/src/pubfig/__init__.py`
-2. relevant chart-family module in `plots/`
-3. `pubfig/src/pubfig/specs.py`
-4. `pubfig/src/pubfig/export/io.py`
-5. `pubfig/src/pubfig/export/panels.py`
-6. `pubfig/src/pubfig/cli.py` only if the task involves bridge/Figma sync
-
-## 6. Implications for this skill
-
-This source layout implies the skill should:
-
-- default to **Python plot API + explicit export call**,
-- treat publication sizing as an export concern,
-- treat panel/Figma work as optional downstream composition,
-- avoid presenting the CLI as the main path for ordinary figure generation,
-- keep chart selection logically ahead of export tuning.
+- Require `pubfig>=0.3.0`; older `pubfig` versions do not provide the agent-first render CLI.
+- Do not route ordinary figure generation through the Figma bridge.
+- Use Figma only after valid panel exports exist and composite assembly is genuinely needed.
+- Do not use Python API examples as the default answer for agent figure generation.
+- Do not mix up plot-time design size with export-time publication size.
+- Use `batch_export` when multiple formats are required.

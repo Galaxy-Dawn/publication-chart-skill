@@ -1,21 +1,56 @@
 # pubfig Recipes
 
-`pubfig` is the default engine for scientific figures.
+`pubfig>=0.3.0` is the default engine for scientific figures. For agents, prefer the **JSON CLI** over ad-hoc Python plotting code.
 
-## Core route
+Primary commands:
 
-Typical minimal workflow:
+```bash
+pubfig list-kinds
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
 
-```python
-import pubfig as pf
+Use the Python API only when the user is explicitly working inside a notebook/script or needs custom logic not representable in a CLI JSON spec.
 
-fig = pf.line(data, x=x, series_names=["A", "B"])
-pf.save_figure(fig, "figure1.pdf")
+## Core CLI route
+
+A minimal single-figure spec:
+
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "line",
+    "kwargs": {
+      "data": [[0.78, 1.03, 1.15], [0.87, 1.01, 1.04]],
+      "series_names": ["Baseline", "Method"]
+    }
+  },
+  "export": {
+    "mode": "save_figure",
+    "path": "figure1.pdf",
+    "spec": "nature",
+    "width": "single"
+  }
+}
+```
+
+Validate before rendering:
+
+```bash
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
+
+For headless CLI/agent/CI environments, prepend `MPLBACKEND=Agg` if the local Matplotlib backend tries to open a GUI window:
+
+```bash
+MPLBACKEND=Agg pubfig render figure.spec.json
 ```
 
 ## Common figure families
 
-| Need | Preferred `pubfig` functions |
+| Need | Preferred `plot.kind` values |
 |---|---|
 | benchmark comparison | `bar_scatter`, `grouped_scatter`, `bar`, `line` |
 | ablation | `bar_scatter`, `dumbbell`, `paired`, `bar` |
@@ -26,79 +61,193 @@ pf.save_figure(fig, "figure1.pdf")
 | composition / hierarchy | `donut`, `upset`, `radial_hierarchy`, `circular_grouped_bar`, `circular_stacked_bar`, `stacked_ratio_barh` |
 | matrix / map | `heatmap`, `corr_matrix`, `clustermap` |
 
-## Export defaults
+Use `pubfig list-kinds` to confirm the supported kind names in the installed version.
 
-For a normal first pass:
+## Export modes
 
-```python
-pf.save_figure(fig, "figure1.pdf")
+### Single explicit artifact
+
+```text
+"export": {
+  "mode": "save_figure",
+  "path": "figure1.pdf",
+  "spec": "nature",
+  "width": "single"
+}
 ```
 
-For multiple formats:
+Use this when the agent needs one manuscript-facing file.
 
-```python
-pf.batch_export(
-    fig,
-    "figure1",
-    formats=("pdf", "svg", "png"),
-    spec="nature",
-    width="single",
-    dpi=300,
-)
+### Multiple publication outputs
+
+```text
+"export": {
+  "mode": "batch_export",
+  "base_path": "figure1",
+  "formats": ["pdf", "svg", "png"],
+  "spec": "nature",
+  "width": "single",
+  "dpi": 300
+}
 ```
 
-## When to add export parameters
+Use this when the same figure needs PDF for manuscript submission, SVG for editing, and PNG for review threads or slides.
 
-Only add more export controls when the task demands them:
+### Panel export
 
-- `spec` / `width` for venue-style export
-- explicit SVG for vector-first downstream editing
-- PNG for quick review or raster deliverables
-- panel export when the user truly needs composite assembly
-- `batch_export(...)` when the same figure needs several publication-style outputs
+Use `export_panels` only when multi-panel assembly is genuinely needed:
 
-## Panel export branch
+```json
+{
+  "schema_version": 1,
+  "panels": [
+    {
+      "panel_id": "a",
+      "kind": "bar_scatter",
+      "kwargs": {
+        "data": {"$load": "data/panel_a.npy"},
+        "category_names": ["Dataset A", "Dataset B"],
+        "series_names": ["Baseline", "Method"]
+      }
+    },
+    {
+      "panel_id": "b",
+      "kind": "line",
+      "kwargs": {
+        "data": {"$load": "data/panel_b.npy"}
+      }
+    }
+  ],
+  "export": {
+    "mode": "export_panels",
+    "output_dir": "panels",
+    "format": "svg",
+    "overwrite": true
+  }
+}
+```
 
-Use these only when multi-panel assembly is genuinely needed:
+Then:
 
-- `export_panel(...)`
-- `export_panels(...)`
+```bash
+pubfig validate-spec panels.spec.json
+pubfig render panels.spec.json
+```
 
-Do not default to panel export for single figures.
+## Data inputs in JSON specs
+
+Small arrays can be inline JSON lists. Larger arrays should be referenced from files:
+
+```text
+"data": {"$load": "data/benchmark.npy"}
+```
+
+Supported reference patterns include JSON/CSV/NPY/NPZ files in `pubfig 0.3.0`.
 
 ## Minimal recipe patterns
 
 ### Benchmark comparison
 
-```python
-fig = pf.grouped_scatter(values, category_names=category_names, group_names=model_names)
-pf.save_figure(fig, "benchmark.pdf")
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "grouped_scatter",
+    "kwargs": {
+      "data": {"$load": "data/benchmark.npy"},
+      "category_names": ["Dataset A", "Dataset B", "Dataset C"],
+      "group_names": ["Baseline", "Method A", "Method B"],
+      "title": "Benchmark comparison"
+    }
+  },
+  "export": {
+    "mode": "batch_export",
+    "base_path": "benchmark",
+    "formats": ["pdf", "png"],
+    "spec": "nature",
+    "width": "single",
+    "dpi": 300
+  }
+}
 ```
 
 ### Ablation
 
-```python
-fig = pf.dumbbell(baseline, improved, category_names=labels)
-pf.save_figure(fig, "ablation.pdf")
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "dumbbell",
+    "kwargs": {
+      "start": [0.72, 0.81, 0.77],
+      "end": [0.79, 0.86, 0.83],
+      "category_names": ["Metric A", "Metric B", "Metric C"],
+      "left_label": "Without module",
+      "right_label": "With module",
+      "show_delta_labels": true
+    }
+  },
+  "export": {"mode": "save_figure", "path": "ablation.pdf"}
+}
 ```
 
 ### Calibration
 
-```python
-fig = pf.calibration(prob_true, prob_pred)
-pf.save_figure(fig, "calibration.pdf")
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "calibration",
+    "kwargs": {
+      "y_true": [0, 1, 1, 0, 1],
+      "y_prob": [0.10, 0.72, 0.83, 0.31, 0.91]
+    }
+  },
+  "export": {"mode": "save_figure", "path": "calibration.pdf"}
+}
 ```
 
 ### Forest plot
 
-```python
-fig = pf.forest_plot(effect, lower, upper, labels=labels, reference=1.0)
-pf.save_figure(fig, "forest.pdf")
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "forest_plot",
+    "kwargs": {
+      "effect": [1.12, 0.84, 1.36],
+      "ci_low": [0.98, 0.71, 1.10],
+      "ci_high": [1.29, 0.99, 1.68],
+      "labels": ["Age", "BMI", "Smoking"],
+      "reference": 1.0
+    }
+  },
+  "export": {"mode": "save_figure", "path": "forest.pdf"}
+}
 ```
 
 ### Heatmap
 
-```python
-fig = pf.heatmap(matrix)
-pf.save_figure(fig, "heatmap.pdf")
+```json
+{
+  "schema_version": 1,
+  "plot": {
+    "kind": "heatmap",
+    "kwargs": {
+      "data": [[1.0, 0.3], [0.3, 1.0]],
+      "title": "Correlation matrix"
+    }
+  },
+  "export": {"mode": "save_figure", "path": "heatmap.pdf"}
+}
 ```
+
+## Agent response rule
+
+When producing a `pubfig` route, include:
+
+1. a concrete JSON spec,
+2. `pubfig validate-spec ...`,
+3. `pubfig render ...`,
+4. expected output paths from the export block,
+5. a short QA note.

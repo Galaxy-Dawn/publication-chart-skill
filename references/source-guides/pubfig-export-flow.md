@@ -1,210 +1,152 @@
 # pubfig export flow (source-driven)
 
-This guide explains how `pubfig` moves from a generated Matplotlib figure to paper-ready files.
+This guide explains how `pubfig>=0.3.0` moves from a JSON render spec to paper-ready files.
 
 Primary source files:
 
+- `pubfig/src/pubfig/render_spec.py`
 - `pubfig/src/pubfig/export/io.py`
 - `pubfig/src/pubfig/export/panels.py`
 - `pubfig/src/pubfig/specs.py`
 
-## 1. Core export contract
+## 1. Agent-facing export contract
 
-`export/io.py` separates two concerns:
+### Source facts
 
-- **coercing a valid figure object**
-- **writing explicit output files**
+`render_spec.py` accepts these export modes:
 
-The helper `_coerce_mpl_figure(...)` accepts:
+- `save_figure`
+- `batch_export`
+- `export_panels`
 
-- a `Figure`
-- an `Axes`
-- an object with a `.figure` attribute pointing to a `Figure`
+For a single figure, the spec uses `plot` plus either `save_figure` or `batch_export`. For a panel package, the spec uses `panels` plus `export_panels`.
 
-The export layer is standardized around Matplotlib figures, even if upstream plotting code returns a richer wrapper.
+### Operational interpretation
 
-## 2. `save_figure(...)` is now single-target and suffix-explicit
+Agents should describe export through the JSON `export` block, then validate and render:
 
-A key source-level rule lives in `_resolve_save_figure_target(...)`:
+```bash
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
 
-- `save_figure(...)` now requires an explicit filename suffix,
-- supported examples include `.pdf`, `.svg`, `.png`, `.jpg`, `.tif`, `.eps`, `.ps`,
-- if there is no suffix, the function raises an error,
-- if multiple outputs are wanted, the source tells you to use `batch_export(...)`.
+## 2. `save_figure` mode
 
-Skill implication:
+Use this mode for one explicit manuscript-facing file:
 
-- always write `results/figure1.pdf` rather than `results/figure1`
-- when you want several formats, recommend `batch_export(...)`, not legacy vector/raster format lists
+```text
+"export": {
+  "mode": "save_figure",
+  "path": "figure1.pdf",
+  "spec": "nature",
+  "width": "single"
+}
+```
 
-## 3. Publication sizing path
+### Source facts
 
-`save_figure(...)` is publication-aware.
+The underlying `save_figure(...)` requires an explicit suffix and supports publication sizing through `spec`, `width`, `height_mm`, and `aspect_ratio`.
 
-Internally it does the following:
+### Operational interpretation
 
-1. load the chosen `FigureSpec` via `get_figure_spec(...)`
-2. resolve width through `resolve_width_mm(...)`
-3. resolve height through `resolve_height_mm(...)`
-4. set the Matplotlib figure size in inches using mm-to-inch conversion
-5. choose raster DPI from the spec unless overridden
-6. save the explicit target file
-7. restore original caller state afterward
+Write `figure1.pdf`, `figure1.svg`, or `figure1.png` explicitly. Do not rely on an implicit default suffix.
 
-Interpretation from source:
+## 3. `batch_export` mode
 
-- export sizing is more than a file-write step; it can temporarily resize the figure to venue-oriented physical dimensions before output.
+Use this mode when the same figure needs multiple output formats:
 
-## 4. Width and height semantics
+```text
+"export": {
+  "mode": "batch_export",
+  "base_path": "figure1",
+  "formats": ["pdf", "svg", "png"],
+  "spec": "nature",
+  "width": "single",
+  "dpi": 300
+}
+```
 
-From `specs.py`:
+### Source facts
 
-- width can be `single`, `double`, or a numeric mm value
-- the built-in registry contains `nature`, `science`, and `cell`
-- height can be explicit `height_mm`
-- otherwise height is derived from `aspect_ratio`
+The underlying `batch_export(...)` appends each format suffix, applies publication-aware layout for each target, and restores the in-memory figure state after export.
 
-That yields a clean rule for the skill:
+### Operational interpretation
 
-- if the user asks for publication width, use `save_figure(..., spec=..., width=...)`
-- if the user only wants quick draft export, keep the recommendation minimal
+Use this for paper PDF, editable SVG, and review PNG from one validated figure spec.
 
-## 5. `batch_export(...)`
+## 4. Publication sizing path
 
-`batch_export(...)` is the publication-aware multi-format lane.
+### Source facts
 
-Source behavior:
+`export/io.py` uses `FigureSpec` definitions from `specs.py`. Built-in specs include `nature`, `science`, and `cell`. Width can be `single`, `double`, or a numeric millimeter value. Height can be explicit or derived from `aspect_ratio`.
 
-- it takes a `base_path`
-- it accepts publication export controls such as `spec`, `width`, `height_mm`, `aspect_ratio`, and `dpi`
-- appends each explicit suffix from `formats`
-- relayouts the figure through `_export_with_publication_layout(...)` for each target format
-- restores the original in-memory figure size/state after export
+### Operational interpretation
 
-This is the right recommendation when the user needs, for example:
-
-- `PDF` for manuscript submission
-- `SVG` for downstream editing
-- `PNG` for slides or issue threads
-
-Operational implication:
-
-- use `batch_export(...)` when the task needs multiple publication-style outputs from the same figure,
-- do not describe it as a plain `savefig` loop.
-
-## 6. What `_save_basic_figure(...)` still does
-
-`_save_basic_figure(...)` is still relevant, but it is no longer the main multi-format path for `batch_export(...)`.
-
-It remains the lower-level path used for:
-
-- direct basic export helpers,
-- size-preserving panel export in `export/panels.py`,
-- and internal single-target save operations that do not need publication relayout.
-
-From the source, it also handles:
-
-- output directory creation
-- vector-text rcParams (important for editable SVG/PDF text handling)
-- post-layout legend alignment
-- post-layout callbacks attached by plot code
-- trim/tight bbox behavior
-
-So export quality is partially centralized in the export layer, not only inside plot modules.
-
-## 7. Panel export lane
-
-`export/panels.py` defines the multi-panel handoff path.
-
-Key components:
-
-- `PanelExportRecord`
-- `export_panel(...)`
-- `export_panels(...)`
-- `_write_panel_index(...)`
-
-A `PanelExportRecord` stores:
-
-- `panel_id`
-- `path`
-- `format`
-- `exported_at`
-- `figma_node_name`
-- `pubfig_version`
-- optional `title`
-- optional `label`
-
-This shows that panel export is not only file emission. It also preserves minimal sync metadata.
-
-## 8. Title stripping is intentional
-
-One subtle but important source behavior:
-
-- `_temporarily_strip_titles(...)` removes figure/axes titles during panel export by default unless `include_title=True`
-
-Operational implication:
-
-- panel-first composite assembly usually wants clean panel artwork,
-- whole-figure titles and layout labels are often handled later,
-- prefer exporting clean panel art first and adding whole-figure titles or layout labels downstream when needed.
-
-## 9. Publication-aware vs size-preserving panel export
-
-`export_panel(...)` has two modes:
-
-### Publication-aware mode
-
-Triggered when any of these are supplied:
+For paper-ready figures, specify at least:
 
 - `spec`
 - `width`
-- `height_mm`
+- output suffix or formats
 
-Then it delegates to `save_figure(...)`.
+For quick drafts, keep the export block minimal but still explicit.
 
-### Size-preserving mode
+## 5. `export_panels` mode
 
-If none of those are supplied, it falls back to `_save_basic_figure(...)` and preserves the figure’s current size.
+Use this mode for multi-panel handoff:
 
-Skill implication:
+```text
+"export": {
+  "mode": "export_panels",
+  "output_dir": "panels",
+  "format": "svg",
+  "overwrite": true
+}
+```
 
-- for reproducible paper panels, specify publication export parameters
-- for design review or quick composition, preserving current size may be acceptable
+### Source facts
 
-## 10. Multiple panel export
+`export_panels(...)` writes panel assets and can write `panel-index.json`. Panel records carry `panel_id`, path, format, export timestamp, pubfig version, optional title, and optional label.
 
-`export_panels(...)` does three main things:
+### Operational interpretation
 
-1. normalize and validate panel ids,
-2. resolve labels for each panel,
-3. export each panel and optionally write `panel-index.json`.
+Panel export is a structured asset workflow, not just a file dump. Use it before optional composite/Figma assembly.
 
-Default recommendation:
+## 6. Title handling in panel export
 
-- prefer this route when the user wants a structured panel directory rather than a single whole-figure asset.
+### Source facts
 
-## 11. Overwrite and safety behavior
+Panel export strips titles by default unless `include_title=True`.
 
-From `_ensure_writable_target(...)`:
+### Operational interpretation
 
-- an existing panel file raises unless `overwrite=True`
+Panel-first composite workflows usually want clean panel artwork. Add global titles, labels, and final layout text downstream.
 
-That is useful for skill guidance because it means refresh-in-place is an explicit decision.
+## 7. Underlying Python export primitives
 
-## 12. Recommended source-faithful export patterns
+The CLI modes call the same underlying primitives:
+
+- `save_figure(...)`
+- `batch_export(...)`
+- `export_panels(...)`
+
+Mention these functions when explaining source behavior or notebook/script usage. For agent output, lead with the JSON CLI.
+
+## 8. Recommended source-faithful patterns
 
 ### Single paper figure
 
-- plot with `pubfig.<chart_family>(...)`
-- save with `save_figure(fig, 'out/figure1.pdf', spec='nature', width='single')`
+- create `figure.spec.json` with `export.mode = "save_figure"`
+- run `pubfig validate-spec figure.spec.json`
+- run `pubfig render figure.spec.json`
 
 ### Same figure in several formats
 
-- plot once
-- export with `batch_export(fig, 'out/figure1', formats=('pdf', 'svg', 'png'), spec='nature', width='single', dpi=300)`
+- create `figure.spec.json` with `export.mode = "batch_export"`
+- set `formats` explicitly
+- validate and render through the CLI
 
 ### Multi-panel downstream assembly
 
-- generate each panel as a separate `Figure`
-- export with `export_panels(...)`
-- use the index file for composite/Figma-aware downstream handling
+- create `panels.spec.json` with `panels` and `export.mode = "export_panels"`
+- validate and render through the CLI
+- use the panel directory and `panel-index.json` for composite/Figma-aware downstream handling

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.metadata
 import json
 import shutil
 import subprocess
@@ -27,11 +28,35 @@ class InstallPlan:
 
 
 DEFAULT_PACKAGES: tuple[str, ...] = ("pubfig", "pubtab")
+MINIMUM_VERSIONS: dict[str, str] = {"pubfig": "0.3.0"}
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    parts: list[int] = []
+    for item in str(value).split("."):
+        digits = ""
+        for char in item:
+            if char.isdigit():
+                digits += char
+            else:
+                break
+        if digits == "":
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _meets_minimum(version: str | None, minimum: str | None) -> bool:
+    if minimum is None:
+        return True
+    if version is None:
+        return False
+    return _version_tuple(version) >= _version_tuple(minimum)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe and force-install pubfig/pubtab into the active Python environment."
+        description="Probe and force-install pubfig>=0.3.0/pubtab into the active Python environment."
     )
     parser.add_argument(
         "--require",
@@ -61,13 +86,31 @@ def parse_args() -> argparse.Namespace:
 
 
 def probe_package(package: str) -> PackageStatus:
+    importlib.invalidate_caches()
+    for module_name in list(sys.modules):
+        if module_name == package or module_name.startswith(f"{package}."):
+            sys.modules.pop(module_name, None)
     try:
         module = importlib.import_module(package)
     except Exception as exc:  # noqa: BLE001
         return PackageStatus(package=package, available=False, error=f"{type(exc).__name__}: {exc}")
 
     version = getattr(module, "__version__", None)
-    return PackageStatus(package=package, available=True, version=str(version) if version else None)
+    if version is None:
+        try:
+            version = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            version = None
+    version_text = str(version) if version else None
+    minimum = MINIMUM_VERSIONS.get(package)
+    if not _meets_minimum(version_text, minimum):
+        return PackageStatus(
+            package=package,
+            available=False,
+            version=version_text,
+            error=f"VersionTooOld: {package} {version_text or 'unknown'} < {minimum}",
+        )
+    return PackageStatus(package=package, available=True, version=version_text)
 
 
 def is_uv_managed(cwd: Path) -> bool:
@@ -94,10 +137,11 @@ def choose_installer(prefer: str, cwd: Path) -> str:
 
 
 def build_install_plan(installer: str, package: str) -> InstallPlan:
+    requirement = f"{package}>={MINIMUM_VERSIONS[package]}" if package in MINIMUM_VERSIONS else package
     if installer == "uv":
-        command = ("uv", "pip", "install", "--python", sys.executable, package)
+        command = ("uv", "pip", "install", "--python", sys.executable, "--upgrade", requirement)
     else:
-        command = (sys.executable, "-m", "pip", "install", package)
+        command = (sys.executable, "-m", "pip", "install", "--upgrade", requirement)
     return InstallPlan(installer=installer, command=command)
 
 

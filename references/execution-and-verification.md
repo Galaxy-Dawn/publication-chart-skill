@@ -15,21 +15,23 @@ python3 scripts/ensure_publication_tooling.py --require pubfig --json
 python3 scripts/ensure_publication_tooling.py --require pubtab --json
 ```
 
-The helper probes availability, force-installs missing dependencies into the active interpreter, and returns the post-install status.
+The helper probes availability, force-installs missing dependencies into the active interpreter, and returns the post-install status. For `pubfig`, it enforces `pubfig>=0.3.0`.
 
 ### Equivalent manual checks
 
 ```bash
-python -c "import pubfig; print(pubfig.__version__)"
+python -c "import pubfig; print(pubfig.__version__)"   # must be >=0.3.0
+pubfig --version
+pubfig list-kinds
 python -c "import pubtab; print(pubtab.__version__)"
 pubtab --help
 ```
 
-Do not spend the whole turn on setup if the user primarily needs design guidance. Just identify whether the route is executable now or should degrade gracefully.
+Do not spend the whole turn on setup if the user primarily needs design guidance. Identify whether the route is executable now or should degrade gracefully.
 
 ## Automatic installation policy
 
-If a dependency is missing and the task requires real execution, install it automatically before continuing.
+If a dependency is missing or `pubfig` is older than `0.3.0`, install or upgrade it automatically before continuing when the task requires real execution.
 
 ### Preferred bundled route
 
@@ -40,15 +42,15 @@ python3 scripts/ensure_publication_tooling.py --require pubfig
 python3 scripts/ensure_publication_tooling.py --require pubtab
 ```
 
-The helper chooses `uv pip install --python <active-python>` when the project is clearly `uv`-managed, and otherwise falls back to `python -m pip install ...`.
+The helper chooses `uv pip install --python <active-python> --upgrade ...` when the project is clearly `uv`-managed, and otherwise falls back to `python -m pip install --upgrade ...`.
 
 ### Equivalent manual install commands
 
 ```bash
-uv pip install --python "$VIRTUAL_ENV/bin/python" pubfig
-uv pip install --python "$VIRTUAL_ENV/bin/python" pubtab
-python -m pip install pubfig
-python -m pip install pubtab
+uv pip install --python "$VIRTUAL_ENV/bin/python" --upgrade "pubfig>=0.3.0"
+uv pip install --python "$VIRTUAL_ENV/bin/python" --upgrade pubtab
+python -m pip install --upgrade "pubfig>=0.3.0"
+python -m pip install --upgrade pubtab
 ```
 
 ### Required follow-up
@@ -56,19 +58,29 @@ python -m pip install pubtab
 After installation:
 
 1. re-run the availability probe,
-2. report the updated environment status,
-3. continue with the runnable figure/table workflow.
+2. confirm `pubfig list-kinds` works for figure tasks,
+3. report the updated environment status,
+4. continue with the runnable figure/table workflow.
 
-If installation fails, capture the exact error and then fall back to design/specification guidance.
+If installation fails, capture the exact error and fall back to design/specification guidance.
 
 ## Route selection
 
-### Use `pubfig` when
+### Use the `pubfig>=0.3.0` JSON CLI when
 
 - the task is primarily a figure,
-- the user already has Python data structures,
-- the result is a plot family already covered by `pubfig`,
+- the user needs an agent/automation-friendly route,
+- the result is a plot family listed by `pubfig list-kinds`,
 - export quality matters immediately.
+
+The default agent route is:
+
+```bash
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
+
+Use the Python API only when the user is already working inside a notebook/script or the required logic is not expressible in the JSON spec.
 
 ### Use `pubtab` when
 
@@ -89,9 +101,24 @@ If installation fails, capture the exact error and then fall back to design/spec
 
 After generating a minimal figure route, the first useful verification is:
 
-- can the code execute,
-- does `save_figure(...)` or `batch_export(...)` produce the expected files,
-- do output suffixes match the intended formats.
+```bash
+pubfig validate-spec figure.spec.json
+pubfig render figure.spec.json
+```
+
+Check that:
+
+- `validate-spec` returns `ok: true`,
+- `render` returns `ok: true`,
+- `output_paths` match the requested files,
+- the files exist on disk,
+- suffixes match the intended formats.
+
+For headless agent/CI environments, prepend `MPLBACKEND=Agg` if Matplotlib attempts to use a GUI backend:
+
+```bash
+MPLBACKEND=Agg pubfig render figure.spec.json
+```
 
 ### `pubtab`
 
@@ -105,14 +132,13 @@ After generating a minimal table route, the first useful verification is:
 
 ### `pubfig`
 
-Useful export primitives include:
+Useful JSON export modes include:
 
-- `save_figure(...)`
-- `batch_export(...)`
-- `export_panel(...)`
-- `export_panels(...)`
+- `save_figure` for one explicit file,
+- `batch_export` for multiple formats from one figure,
+- `export_panels` for panel directories used in composite/Figma handoff.
 
-Use panel export only when multi-panel assembly is truly needed.
+These CLI modes call the same underlying export primitives as the Python API. Prefer the CLI for agent-generated figures because the spec is reviewable, repeatable, and easy to validate before writing final assets.
 
 ### `pubtab`
 
@@ -138,7 +164,7 @@ If the tool is missing:
 - if installation still fails, provide:
   - the artifact recommendation,
   - the exact files the user should prepare,
-  - a draft CLI or Python route,
+  - a draft JSON spec, CLI route, or Python fallback,
   - the export targets,
   - and the publication QA checklist.
 

@@ -1,7 +1,7 @@
 ---
 name: publication-chart-skill
-description: This skill should be used when the user asks for a publication-quality scientific figure or table, wants help choosing the right chart for results, needs a paper-ready pubfig or pubtab workflow, wants a figure + companion table for a results section, wants an Excel sheet turned into publication-ready LaTeX, or wants an existing scientific figure/table reviewed and upgraded.
-version: 0.2.0
+description: This skill should be used when the user asks for a publication-quality scientific figure or table, wants help choosing the right chart for results, needs a paper-ready pubfig>=0.3.0 CLI or pubtab workflow, wants a figure + companion table for a results section, wants an Excel sheet turned into publication-ready LaTeX, or wants an existing scientific figure/table reviewed and upgraded.
+version: 0.3.0
 ---
 
 # Publication Chart Skill
@@ -12,14 +12,14 @@ Use this skill to turn research results into **publication-grade figures and tab
 
 Primary production stack:
 
-- **`pubfig`** for figures
+- **`pubfig>=0.3.0` JSON CLI** for figures (`pubfig render`, `pubfig validate-spec`, `pubfig list-kinds`)
 - **`pubtab`** for publication tables
 
 This skill covers the full delivery chain:
 
 1. understand the scientific communication goal,
 2. choose the right artifact type,
-3. map the task to `pubfig`, `pubtab`, or both,
+3. map the task to the `pubfig>=0.3.0` JSON CLI, `pubtab`, or both,
 4. generate concrete runnable instructions,
 5. export paper-ready assets,
 6. run publication QA,
@@ -69,8 +69,8 @@ Expect some combination of:
 The minimum useful output is:
 
 - the recommended figure/table form,
-- the recommended `pubfig` / `pubtab` route,
-- a minimal runnable code snippet or CLI command,
+- the recommended `pubfig` CLI / `pubtab` route,
+- a minimal runnable JSON spec, CLI command, or code snippet,
 - explicit export filenames and formats,
 - a publication QA summary,
 - and, when needed, a revision plan.
@@ -81,19 +81,21 @@ The minimum useful output is:
 
 Before generating anything, identify:
 
-- whether `pubfig` or `pubtab` is actually available,
+- whether `pubfig>=0.3.0` or `pubtab` is actually available,
 - whether the user already has code / spreadsheets / `.tex` / screenshots,
 - whether the deliverable is a fresh build or a revision,
 - whether the result needs exact values, fast visual perception, or both.
 
 Prefer the smallest environment check that helps execution. When the bundled helper script is available, use it first:
 
-- `python3 scripts/ensure_publication_tooling.py --require pubfig --json`
+- `python3 scripts/ensure_publication_tooling.py --require pubfig --json`  # enforces `pubfig>=0.3.0`
 - `python3 scripts/ensure_publication_tooling.py --require pubtab --json`
 
 Equivalent manual checks are still acceptable when needed:
 
-- `python -c "import pubfig; print(pubfig.__version__)"`
+- `python -c "import pubfig; print(pubfig.__version__)"`  # must be `>=0.3.0`
+- `pubfig --version`
+- `pubfig list-kinds`
 - `python -c "import pubtab; print(pubtab.__version__)"`
 - `pubtab --help`
 
@@ -112,10 +114,10 @@ Equivalent concrete commands include:
 
 - `python3 scripts/ensure_publication_tooling.py --require pubfig`
 - `python3 scripts/ensure_publication_tooling.py --require pubtab`
-- `uv pip install pubfig`
-- `uv pip install pubtab`
-- `python -m pip install pubfig`
-- `python -m pip install pubtab`
+- `uv pip install --upgrade "pubfig>=0.3.0"`
+- `uv pip install --upgrade pubtab`
+- `python -m pip install --upgrade "pubfig>=0.3.0"`
+- `python -m pip install --upgrade pubtab`
 
 If auto-install fails, report the exact failure and then degrade gracefully.
 
@@ -160,19 +162,20 @@ If the request is ambiguous, explicitly state what scientific claim the artifact
 
 Default mapping:
 
-- **Figures** → `pubfig`
-- **Tables** → `pubtab`
+- **Figures** → `pubfig>=0.3.0` JSON CLI by default
+- **Tables** → `pubtab` CLI / Python API depending on file context
 - **Mixed deliverables** → use both, with each artifact carrying a distinct role
 
 Tool roles:
 
-- `pubfig` is the default figure engine for scientific plots and paper-ready export.
+- `pubfig>=0.3.0` is the default figure engine; for agents, its JSON CLI is the preferred interface for scientific plots and paper-ready export.
 - `pubtab` is the default table engine for Excel ↔ LaTeX workflows, preview, and publication-ready table export.
 - Figma/composite assembly is an **optional secondary branch** for multi-panel finishing.
 
 Route selection rules:
 
-- prefer **Python** for `pubfig` figure generation,
+- prefer **`pubfig` CLI JSON specs** for agent/automation figure generation; use `pubfig validate-spec` before `pubfig render`,
+- prefer **Python API** for `pubfig` only when the user is explicitly working in a notebook/script or needs custom unsupported logic,
 - prefer **CLI** for `pubtab` when the task is file-driven,
 - prefer **Python** for `pubtab` when the task is already inside a notebook or scripted pipeline,
 - keep the figure and table responsibilities separate in mixed requests.
@@ -181,19 +184,19 @@ Route selection rules:
 
 Prefer the smallest production-ready artifact first:
 
-- minimal runnable Python for `pubfig`, or
+- a minimal runnable `pubfig` JSON spec plus `pubfig validate-spec` / `pubfig render`, or
 - minimal CLI/Python for `pubtab`
 
 Then add publication parameters only when justified:
 
 - labels, caption, width, export format, backend, preview, panel packaging, or composite layout.
 
-Keep filenames and suffixes explicit.
+For `pubfig`, keep the JSON spec explicit: `schema_version`, `plot.kind` or `panels`, `kwargs`, and `export`. Prefer `batch_export` when the agent needs PDF plus PNG/SVG from the same figure. Keep filenames and suffixes explicit.
 
 Good defaults:
 
-- figures: one `pubfig` call + one `save_figure(...)`
-- multiple figure outputs: `batch_export(...)`
+- figures: one `figure.spec.json` + `pubfig validate-spec figure.spec.json` + `pubfig render figure.spec.json`
+- multiple figure outputs: `export.mode = "batch_export"` in the `pubfig` JSON spec
 - tables: one `pubtab xlsx2tex ...` or `pubtab.preview ...`
 - mixed requests: one figure route + one table route, clearly separated
 
@@ -202,7 +205,7 @@ Good defaults:
 For every response, make these explicit when possible:
 
 - the claim the artifact supports,
-- which part is handled by `pubfig` and which by `pubtab`,
+- which part is handled by the `pubfig` CLI and which by `pubtab`,
 - the output filenames,
 - the output formats,
 - whether the artifact is draft / final / revision,
@@ -239,7 +242,7 @@ If the result is weak, revise with specific changes such as:
 
 ## Missing dependency behavior
 
-If `pubfig` or `pubtab` is not available:
+If `pubfig>=0.3.0` or `pubtab` is not available:
 
 - do **not** fail immediately,
 - first attempt automatic installation into the active environment,
@@ -266,7 +269,7 @@ Do not escalate simple figure tasks into composite/Figma workflows by default.
 
 - Prefer direct, implementation-usable outputs.
 - Explain the **why** of chart/table choice briefly, then give the runnable route.
-- When execution matters, include a short environment status block such as `pubfig: available/missing`, `pubtab: available/missing`.
+- When execution matters, include a short environment status block such as `pubfig: available >=0.3.0 / missing / too old`, `pubtab: available/missing`.
 - If a dependency is missing, state the exact helper command or install command, perform the installation, and report the post-install status.
 - When a table is stronger than a figure, say so explicitly.
 - When a figure is stronger than a table, say so explicitly.
@@ -278,8 +281,8 @@ Do not escalate simple figure tasks into composite/Figma workflows by default.
 A strong response using this skill usually has 6 parts:
 
 1. **Artifact decision** — figure / table / paired deliverable, and why
-2. **Tool route** — `pubfig`, `pubtab`, or both
-3. **Minimal implementation** — runnable code or CLI
+2. **Tool route** — `pubfig>=0.3.0` JSON CLI, `pubtab`, or both
+3. **Minimal implementation** — runnable JSON spec, CLI, or code
 4. **Export plan** — filenames, formats, width/backend/preview choices
 5. **Publication QA** — what to verify before paper submission
 6. **Revision plan** — what to change if the current artifact is weak
@@ -291,8 +294,8 @@ Load these as needed:
 - `references/workflow.md` — full end-to-end decision order and delivery contract
 - `references/chart-selection.md` — task-to-chart mapping and anti-patterns
 - `references/execution-and-verification.md` — environment probing, forced install behavior, and runnable verification
-- `scripts/ensure_publication_tooling.py` — bundled probe + auto-install helper for `pubfig` / `pubtab`
-- `references/pubfig-recipes.md` — shortest useful figure patterns and export routes
+- `scripts/ensure_publication_tooling.py` — bundled probe + auto-install helper for `pubfig>=0.3.0` / `pubtab`
+- `references/pubfig-recipes.md` — agent-first JSON CLI figure specs and export routes
 - `references/pubtab-recipes.md` — shortest useful table routes and backend guidance
 - `references/source-guides/pubfig-architecture.md` — package layout and figure-generation boundaries from source
 - `references/source-guides/pubfig-api-map.md` — stable public pubfig surface and chart-family map from `__init__.py`
