@@ -49,6 +49,20 @@ A strong default response should:
 
 The repository also includes a small helper script, `scripts/ensure_publication_tooling.py`, so the agent can probe whether `pubfig>=0.3.0` and `pubtab` are installed, force-install missing dependencies into the active environment when runnable execution is required, and then continue with the real workflow instead of stopping at generic guidance.
 
+If the environment is missing the required packages, the canonical pip install commands are:
+
+```bash
+python -m pip install --upgrade "pubfig>=0.3.0"
+python -m pip install --upgrade pubtab
+```
+
+When the bundled helper is available, it remains the preferred route:
+
+```bash
+python3 scripts/ensure_publication_tooling.py --require pubfig --json
+python3 scripts/ensure_publication_tooling.py --require pubtab --json
+```
+
 ### Quick examples from pubfig and pubtab
 
 A few representative routes from the underlying toolchain:
